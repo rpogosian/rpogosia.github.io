@@ -1,0 +1,291 @@
+---
+title: "Eurovision Song Contest (1998-2010)"
+author: "Regina Pogosian"
+date: "May 18, 2018"
+output: html_document
+---
+
+## Introduction
+Have you ever watched the Eurovision song contest and wondered if certain countries always voted for the same countries? Did you ever consider that some countries never voted from certain countries? By using data collected between the years of 1998 and 2010, we can determine the answers to those questions. To do so, we will first collect the data and put it into a form in which we would able to dissect using R. We will then process the data, analyze and visualize the data so that we can come up with a hypothesis. Finally, we will test the hypothesis using machine learning.
+
+## Required Tools
+Before you begin, you will need to create a new RMarkdown file in RStudio with the following libraries:
+
+   * tidyverse
+   * tidyr
+   * dplyr
+   * reshape
+   * ggplot2
+
+You will also need to Eurovision contest dataset, which you can find at:  https://docs.google.com/spreadsheets/d/1vW06CKRtgUFzZ4WZEzh_OZEycuhMvUCCxJ6MtXmeBg4/edit?hl=en&hl=en#gid=3
+
+You will need to make sure that you download the dataset as a csv file.
+
+## 1. Getting Started
+The first thing that you will need to do is to download the csv (comma-seperated values) file of the dataset from https://docs.google.com/spreadsheets/d/1vW06CKRtgUFzZ4WZEzh_OZEycuhMvUCCxJ6MtXmeBg4/edit?hl=en&hl=en#gid=3. The file that you will get will be called "Eurovision voting data 1998-2010 - All entries_ 1998-2010.csv". We will need to load the file into RStudio so that we can work with it. When we load it in, it will be in the form of a table, which will allow us to see the data better and pull information from it.
+
+Before we begin, we will load all of the libraries that we are going to use throughout this tutorial.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(reshape)
+library(ggplot2)
+```
+
+Now that we have loaded all of the necessary files, we are going to load in the dataset.
+
+```{r, message=FALSE}
+eurovision_df <- read_csv("Eurovision voting data 1998-2010 - All entries_ 1998-2010.csv")
+eurovision_df
+```
+
+### 1.1 Looking at our data
+Now we have a data frame called eurovision_df. In the data frame, we can see the year of the Eurovision competition, the country that participated along with what region it is from, the language the song was sung in, whether or not it was in English, the name of the artist representing the country, the song they sang, if there is an English translation of the song, the gender of the artist, wherter or not it was a group or a solo performance, what place they received, the total number of points they received, the country in which the competition was hosted in, the region the competition was hosted in, whether it was home country or away, whether is was a home region or away, the approximate betting prices, and then a breakdown of how many points each of the countries gave that country. Any missing data has an NA.
+
+### 1.2 Tidying our data
+The data that we have includes everything about each of the countries and the songs and artists that represented that country. In order to determine if a certain country votes for one more than the other, we don't need to know the other information about the country so we can remove them from the table. With the dplyr library that we installed earlier, we can use the select function and deselect everything that we do not want in out table. The following code fragment does that for us. 
+
+If you want to learn more about the dpylr library, you can read more about it here: https://www.r-project.org/nosvn/pandoc/dplyr.html
+
+```{r, message=FALSE}
+eurovision <- select(eurovision_df, -Year, -Region, -Song, -English, -Artist, -`Song language`, -`Artist gender`, -`English translation`, -`Group/Solo`, -`Host Country`, -`Host region`, -`Home/Away Country`, -`Home/Away Region`, -`Approximate Betting Prices`, -Place, -Points)
+eurovision
+```
+
+Once we have taken out all of the attributes that we do not need, we are left with the each country and how many points they received from other countries. One thing we should notice right away is that there are some places where there is missing data and it is represented with NA. We are going to leave the NA in the data so that, when we look at the average minimum number of points, whatever number we put in there does not interfere with our data. If we replace the NA with zero, that would affect our data and give us wrong results.
+
+The reason that there are NA in the table is due to the fact that some years, some countries did not participate in the competition so there is no data on who they voted for. 
+
+The data, in the form that it was given to us is tidy, meaning that thee attributes forms a column, each entity forms a row, and the type of entity forms the table. 
+
+If you want to learn more about tidy data, you can watch more about it here: https://www.lynda.com/R-tutorials/What-tidy-data/594442/645365-4.html
+
+## 2. Exploratory Data Analysis
+Now that we have tidied up the data and took out the data that we do not need, we can start to do some exploratory data analysis on it. We will do this by making a visual representation of the data so we can better see it. In addition to doing visual analysis, we will also do statistical anaylsis on the data.
+
+### 2.1 Looking at Votes between Countries
+
+The first thing we are going to do before we begin to analize our data, we are going to get the mean points that each of the countries gave each other. We will do so by using the aggregate function. 
+
+If you would like to learn more about aggregate, this website has a lot of good information about it: https://www.rdocumentation.org/packages/stats/versions/3.5.0/topics/aggregate
+
+```{r, message=FALSE}
+options(warn = -1)
+euro_mean <- aggregate(x=eurovision, list(eurovision$Country), mean)
+euro_mean[1:10,]
+```
+
+From the table that we got, it took all of the countries and put them into a new column called 'Group.1' and then left the 'Country' column empty. We are going to fix that by removing the Country column and renaming 'Group.1' to 'Country' like so:
+
+```{r, message=FALSE}
+euro_mean <- select(euro_mean, -Country)
+colnames(euro_mean)[names(euro_mean) == 'Group.1'] <- 'Country'
+euro_mean[1:10,]
+```
+
+Now that we have the mean votes from each country and we have the data looking the way we want it to, we can now start to put it in a form in which we can more easily visualize the data. To visualize the data, we are going to create a plot that shows the average points that the countries gave to other competing countries in the competition.
+
+To plot the data, we are going to use ggplot to help us. If you want to experiment more with it, you may find this link useful: https://tutorials.iq.harvard.edu/R/Rgraphics/Rgraphics.html
+
+This is also a nice ggplot cheatsheet: https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf
+
+```{r, message=FALSE}
+euro_mean %>% tidyr::gather("countries", "Average Points", 2:48) %>%
+  ggplot(aes(x=Country, y=`Average Points`)) +
+  geom_point(aes(colour=countries)) +
+  theme(axis.text.x = element_text(angle=90, hjust=1)) + 
+  labs(title = "Average Points Given to Each Country at Eurovision")
+```
+
+Looking at the graph that we created above, there are a lot of things going on. First of all, there are 48 points for each of the 48 countries that competed which means, there are 2,304 points on the graph which is way too many points to keep track of and to analyize. Second of all, due to the fact that we used zero in place of missing data, if there were some countries where the data was missing, then the smallest number of points a country could have given them is zero, which is useless information for our purposes. 
+
+In order to make this easier to analyze, we are going to remove all of the plots, except for the ones for the country that gave the most points and the country that gave the least points (greater than 0).
+
+This is how we determine the countries that gave the most points to other countries.
+
+First we get the table with each of the competing countries and then find the country that gave them the most points.
+
+```{r, message=FALSE}
+options(warn = -1)
+euro_max <- cbind(euro_mean,do.call(rbind,apply(euro_mean,1,function(x) {data.frame(max=max(x), max.col.name=names(euro_mean)[which.max(x)],stringsAsFactors=FALSE)})))
+colnames(euro_max)[names(euro_max) == 'max.col.name'] <- 'Max Country'
+euro_max <- select(euro_max, -Albania, -Andorra, -Armenia, -Austria, -Azerbaijan, -Belarus, -Belgium, -`Bosnia and Herzegovina`, -Bulgaria, -Croatia, -Cyprus, -`Czech Republic`, -Denmark, -Estonia, -Finland, -France, -Georgia, -Germany, -Greece, -Hungary, -Iceland, -Ireland, -Israel, -Latvia, -Lithuania, -Macedonia, -Malta, -Moldova, -Monaco, -Montenegro, -Netherlands, -Norway, -Poland, -Portugal, -Romania, -Russia, -`San Marino`, -Serbia, -`Serbia & Montenegro`, -Slovakia, -Slovenia, -Spain, -Sweden, -Switzerland, -Turkey, -Ukraine, -`United Kingdom`, -max)
+euro_max
+```
+
+Now lets get a table of each of the countries with the countries that gave them the least number of points, greater than 0.
+
+```{r, message=FALSE}
+options(warn = -1)
+euro_min <- cbind(euro_mean,do.call(rbind,apply(euro_mean,1,function(x) {data.frame(min=min(x[x > 1]), min.col.name=names(euro_mean)[which.min(x)],stringsAsFactors=FALSE)})))
+colnames(euro_min)[names(euro_min) == 'min.col.name'] <- 'Min Country'
+euro_min <- select(euro_min, -Albania, -Andorra, -Armenia, -Austria, -Azerbaijan, -Belarus, -Belgium, -`Bosnia and Herzegovina`, -Bulgaria, -Croatia, -Cyprus, -`Czech Republic`, -Denmark, -Estonia, -Finland, -France, -Georgia, -Germany, -Greece, -Hungary, -Iceland, -Ireland, -Israel, -Latvia, -Lithuania, -Macedonia, -Malta, -Moldova, -Monaco, -Montenegro, -Netherlands, -Norway, -Poland, -Portugal, -Romania, -Russia, -`San Marino`, -Serbia, -`Serbia & Montenegro`, -Slovakia, -Slovenia, -Spain, -Sweden, -Switzerland, -Turkey, -Ukraine, -`United Kingdom`, -min)
+euro_min
+```
+
+We can now use ggplot to graph the max from the data that we gathered above.
+
+```{r, message=FALSE}
+euro_max %>%
+  ggplot(aes(x=Country, y=`Max Country`)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  labs(title = "Max Points Given from Each Country")
+```
+
+We can now use ggplot to graph the min from the data that we gathered above.
+
+```{r, message=FALSE}
+euro_min %>%
+  ggplot(aes(x=Country, y=`Min Country`)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  labs(title = "Min Points Given from Each Country")
+```
+
+We were able to use the statistical anaylsis (finding the mean number of points that the countries gave) to create a visual representation of the data in the form of a plot. We made two plots to be able to see one graph of the max points and anothe graph with the min points. 
+
+#### 2.1.1 Analysis
+Based on the data that we gathered, we can tell that there are definitely some countries that vote for some countries more than others. For example, the most points that a country can give another country at the eurovision contest is 12 points. If we look at our data, since we used the average, the only countries that always gave a certain country a perfect score, were Turkey, Greece, Switzerland, and Croatia. Turkey always gave Azerbaijan a perfect score, Greece always gives Bulgaria a perfect score, and Switzerland and Croatia always gave Serbia and Montenegro a perfect score. It's no coincedence that they happened to always love the performances of those countries the best and always give them a perfect score.
+
+### 2.2 Looking at Votes between Countries and their Regions
+
+We looked at what countries gave more or less points to which countries and we could see some interesting things. Another thing that we can look at which can help us see if there is any relationship between them, is the regions and how the voting is distributed there. 
+
+Lets bring back the data that we had in the beginning so that we can get the data that we want.
+
+This is the same data that we had in the beginning:
+
+```{r, message=FALSE}
+eurovision_df
+```
+
+Now, like before, lets get rid of the data that we don't need and keep what we do. We are going to remove most of the data that we did before except this time, instead of getting rid of the "Region" column, we are going to get rid of the "Country" column.
+
+We also want to make sure that we put in a zero anywhere where there is an NA. If we do not do that, then when we combine the regions to give the mean points from each region, then we will get NA for everthing. 
+
+```{r, message=FALSE}
+eurovision_region <- select(eurovision_df, -Year, -Country, -Song, -English, -Artist, -`Song language`, -`Artist gender`, -`English translation`, -`Group/Solo`, -`Host Country`, -`Host region`, -`Home/Away Country`, -`Home/Away Region`, -`Approximate Betting Prices`, -Place, -Points)
+eurovision_region[is.na(eurovision_region)] <- 0
+eurovision_region
+```
+
+Now that we have the data for the regions, we can combine the rows and get the average points that they received so that we can then plot it.
+
+```{r, message=FALSE}
+options(warn = -1)
+euro_reg_mean <- aggregate(x=eurovision_region, list(eurovision_region$Region), mean)
+euro_reg_mean
+```
+
+Now that we got the the table, we need to clean it up a little bit. We can rename the column "Group.1" to "Region" and remove the "Region" column that is populated with NA. We can easily do that like so:
+
+```{r, message=FALSE}
+euro_reg_mean <- select(euro_reg_mean, -Region)
+colnames(euro_reg_mean)[names(euro_reg_mean) == 'Group.1'] <- "Regions"
+euro_reg_mean
+```
+
+Now that we cleaned up the table, we want to tidy our data. That means that we want each of the countries to be the entities and the regions to be the attributes. We an do this my transposing the table and then casting it to be a dataframe by using data.frame. 
+
+```{r, message=FALSE}
+euro_reg_mean <- data.frame(t(euro_reg_mean))
+euro_reg_mean
+```
+
+Once we have transposed the table, the column names are X1, X2, X3, X4, and X5. Instead of that, we want the column names to be that of the region. In this step, we are going to rename the columns and remove the Regions row because we don't need that in there.
+
+```{r, message=FALSE}
+euro_reg_mean <- setNames(cbind(rownames(euro_reg_mean), euro_reg_mean, row.names = NULL), 
+         c("Countries", "Former Socialist Bloc", "Former Yugoslavia", "Independent", "Scandinavia", "Western Europe"))
+euro_reg_mean <- euro_reg_mean[!row.names(euro_reg_mean)%in%"1",]
+euro_reg_mean[1] <- lapply(euro_reg_mean[1], as.character)
+euro_reg_mean[2] <- lapply(euro_reg_mean[2], as.double)
+euro_reg_mean[3] <- lapply(euro_reg_mean[3], as.double)
+euro_reg_mean[4] <- lapply(euro_reg_mean[4], as.double)
+euro_reg_mean[5] <- lapply(euro_reg_mean[5], as.double)
+euro_reg_mean[6] <- lapply(euro_reg_mean[6], as.double)
+euro_reg_mean
+```
+
+Now that we have cleaned up and tidied the data, we have a nice table with each of the Countries and the average points that they gave each of the regions. It looks very neat, however, it would be better if we can put it in a more visual manner so we can better understand the data that we have. 
+
+Lets go ahead and plot this and see what we have.
+
+```{r, message=FALSE}
+euro.long <- melt(euro_reg_mean, id="Countries", measure = c("Former Socialist Bloc","Former Yugoslavia", "Independent", "Scandinavia", "Western Europe"))
+ggplot(euro.long, aes(x=Countries, y=value, colour=variable)) + 
+  geom_point() +
+  theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  labs(title = "Average Points Given from Each Country to Each Region")
+```
+
+Now that we can see the average votes for each country to the region, lets find which country gave which region the most points.
+
+```{r, message=FALSE}
+options(warn = -1)
+euro_reg_max <- apply(euro_reg_mean,2, function(x) rownames(euro_reg_mean)[which.max(x)])
+euro_reg_max <- rownames(euro_reg_mean[apply(euro_reg_mean, 2, max), ])
+euro_reg_max <- cbind(euro_reg_mean,do.call(rbind,apply(euro_reg_mean,1,function(x) {data.frame(max=max(x), max.col.name=names(euro_reg_mean)[which.max(x)],stringsAsFactors=FALSE)})))
+colnames(euro_reg_max)[names(euro_reg_max) == 'max.col.name'] <- 'Max Region'
+euro_reg_max <- select(euro_reg_max, -`Former Socialist Bloc`, -`Former Yugoslavia`, -Independent, -Scandinavia, -`Western Europe`, -max)
+euro_reg_max
+```
+
+Now let's plot it:
+
+```{r, messagae=FALSE}
+euro_reg_max %>%
+  ggplot(aes(x=Countries,y=`Max Region`)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  labs(title = "Max Points Given from Each Country to Each Region")
+```
+Now that we can see the average votes for each country to the region, lets find which country gave which region the most points.
+
+```{r, message=FALSE}
+options(warn = -1)
+euro_reg_min <- apply(euro_reg_mean,2, function(x) rownames(euro_reg_mean)[which.min(x)])
+euro_reg_min <- rownames(euro_reg_mean[apply(euro_reg_mean, 2, min), ])
+euro_reg_min <- cbind(euro_reg_mean,do.call(rbind,apply(euro_reg_mean,1,function(x) {data.frame(min=min(x), min.col.name=names(euro_reg_mean)[which.min(x)],stringsAsFactors=FALSE)})))
+colnames(euro_reg_min)[names(euro_reg_min) == 'min.col.name'] <- 'Min Region'
+euro_reg_min <- select(euro_reg_min, -`Former Socialist Bloc`, -`Former Yugoslavia`, -Independent, -Scandinavia, -`Western Europe`, -min)
+euro_reg_min
+```
+
+Now let's plot it:
+
+```{r, messagae=FALSE}
+euro_reg_min %>%
+  ggplot(aes(x=Countries,y=`Min Region`)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  labs(title = "Min Points Given from Each Country to Each Region")
+```
+
+#### 2.1.1 Analysis
+Now that we have plotted the data for which regions each country votes for most, we can now analyze and see if countries vote for their own region more than for other regions. After looking at the data, we can see that there are a lot of countries that vote more for countries in their region. For the Former Socialist Bloc, Armenia, Belarus, Russia, Ukraine, Georgia, Latvie, Lithuania, Moldova, and Poland all vote most for countries in their own region. For the Western Europe region, Portugal, Spain, and Belgium all vote most for other countries in their regions. For Former Yugoslavia, Macedonia, Bosnia and Herzegovina, Bulgaria, and Croatia all vote more for countries in that region. Lastly, For the Scandinavia region, Denmark, Finland, Iceland, Norway, Serbia, and Serbia and Montenegro all give most of their votes to other countries in their own region. That could mean that those countries support other countries within their own region more than they do other countries. 
+
+## Conclusion
+The Eurovision contest is always a lot of fun to watch and it is nice to hear and watch all of the performances from each of the countries. I was always interested to see if all the votes that came in where all based on the performance, or if politics somehow found their way into a friendly competition. 
+
+After completing this data analysis, we were able to see that there are some countries that vote soley for certain countries every year. I was not expecting to see any perfect scores on the averages so it was very surprising to see that there were in fact some countries that did only vote for certain countries, without taking into account how good of a performance it was. 
+
+Another thing that was kind of surprising was that it was verey common to see that a lot of the countries voted for the same regions that they are from. I did not expect to see that.
+
+After completing this data anylysis, you can realize that not all of the votes are based on the artists talent and song choice.
+
+Of course, this is not the only thing that you can learn from this dataset so I encourage you to dig deeper into the data set and see what else you can learn from the set! 
+
+Have fun!
+
+### References
+   * Data Wrangling with dplyr and tidyr cheatsheet https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf
+   * Eurovision Dataset https://docs.google.com/spreadsheets/d/1vW06CKRtgUFzZ4WZEzh_OZEycuhMvUCCxJ6MtXmeBg4/edit?hl=en&hl=en#gid=3
+   * dplyr library https://www.r-project.org/nosvn/pandoc/dplyr.html
+   * Tidy data https://www.lynda.com/R-tutorials/What-tidy-data/594442/645365-4.html
+   * Aggregate https://www.rdocumentation.org/packages/stats/versions/3.5.0/topics/aggregate
+   * ggplot https://tutorials.iq.harvard.edu/R/Rgraphics/Rgraphics.html
+   * ggplot cheatsheet https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf
